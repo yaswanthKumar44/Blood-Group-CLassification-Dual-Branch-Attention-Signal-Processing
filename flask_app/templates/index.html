@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Blood Group AI — Dual-Branch Classifier</title>
+  <meta name="description" content="AI-powered blood group classification using Dual-Branch EfficientNetV2-S with signal processing and Grad-CAM visualization." />
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+
+<!-- ═══════════════════ PARTICLES BACKGROUND ═══════════════════ -->
+<canvas id="particles-canvas"></canvas>
+
+<!-- ═══════════════════ HEADER ═══════════════════ -->
+<header class="header glass-card">
+  <div class="header-inner">
+    <div class="logo">
+      <div class="logo-icon">
+        <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M20 4C20 4 8 14 8 22C8 28.627 13.373 34 20 34C26.627 34 32 28.627 32 22C32 14 20 4 20 4Z" fill="url(#blood-gradient)"/>
+          <path d="M20 10C20 10 13 17.5 13 22C13 25.866 16.134 29 20 29C23.866 29 27 25.866 27 22C27 17.5 20 10 20 10Z" fill="rgba(255,255,255,0.2)"/>
+          <defs>
+            <linearGradient id="blood-gradient" x1="8" y1="4" x2="32" y2="34" gradientUnits="userSpaceOnUse">
+              <stop offset="0%" stop-color="#ff6b6b"/>
+              <stop offset="100%" stop-color="#c0392b"/>
+            </linearGradient>
+          </defs>
+        </svg>
+      </div>
+      <div>
+        <h1 class="logo-title">Blood Group AI</h1>
+        <span class="logo-subtitle">Dual-Branch EfficientNetV2-S</span>
+      </div>
+    </div>
+    <div class="header-badges">
+      <span class="badge badge-device" id="device-badge">
+        <span class="badge-dot"></span>
+        <span id="device-label">{{ device }}</span>
+      </span>
+      <span class="badge badge-model">8 Classes</span>
+      <span class="badge badge-model">Grad-CAM</span>
+    </div>
+  </div>
+</header>
+
+<!-- ═══════════════════ HERO SECTION ═══════════════════ -->
+<section class="hero">
+  <div class="hero-text">
+    <div class="hero-tag">🧬 Medical AI</div>
+    <h2 class="hero-title">Identify Blood Groups<br><span class="gradient-text">Instantly with AI</span></h2>
+    <p class="hero-desc">
+      Upload a blood sample image and our state-of-the-art dual-branch neural network will classify it using
+      advanced signal processing and attention fusion. Real-time Grad-CAM visualizations explain every prediction.
+    </p>
+    <div class="hero-stats">
+      <div class="stat">
+        <span class="stat-val">8</span>
+        <span class="stat-lbl">Blood Groups</span>
+      </div>
+      <div class="stat-sep"></div>
+      <div class="stat">
+        <span class="stat-val">2</span>
+        <span class="stat-lbl">Branches</span>
+      </div>
+      <div class="stat-sep"></div>
+      <div class="stat">
+        <span class="stat-val">Grad-CAM</span>
+        <span class="stat-lbl">XAI</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── UPLOAD CARD ─── -->
+  <div class="upload-card glass-card" id="upload-card">
+    <div class="upload-zone" id="drop-zone">
+      <input type="file" id="file-input" accept="image/*" hidden />
+
+      <div class="upload-idle" id="upload-idle">
+        <div class="upload-icon-wrap">
+          <svg class="upload-icon" viewBox="0 0 64 64" fill="none">
+            <circle cx="32" cy="32" r="30" stroke="currentColor" stroke-width="2" stroke-dasharray="6 4" opacity="0.4"/>
+            <path d="M32 42V24M24 32L32 24L40 32" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M20 46H44" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity="0.5"/>
+          </svg>
+        </div>
+        <p class="upload-title">Drop your blood sample image here</p>
+        <p class="upload-hint">PNG, JPG, BMP, TIFF • Max 16 MB</p>
+        <button class="btn-primary" id="browse-btn">
+          <svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
+            <path d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h6a2 2 0 002-2V9l-5-6H4z"/>
+            <path d="M13 9h-3V3l5 6h-2z"/>
+          </svg>
+          Browse File
+        </button>
+      </div>
+
+      <!-- Preview state -->
+      <div class="upload-preview" id="upload-preview" style="display:none">
+        <img id="preview-img" class="preview-thumb" alt="Preview" />
+        <div class="preview-info">
+          <span class="preview-filename" id="preview-filename"></span>
+          <span class="preview-size" id="preview-size"></span>
+        </div>
+        <button class="btn-ghost" id="change-btn">Change Image</button>
+      </div>
+    </div>
+
+    <button class="btn-analyze" id="analyze-btn" disabled>
+      <span class="btn-analyze-text">Analyze Blood Sample</span>
+      <span class="btn-analyze-icon">→</span>
+    </button>
+  </div>
+</section>
+
+<!-- ═══════════════════ LOADING OVERLAY ═══════════════════ -->
+<div class="loading-overlay" id="loading-overlay" style="display:none">
+  <div class="loading-card glass-card">
+    <div class="loading-dna">
+      <div class="dna-strand"></div>
+      <div class="dna-strand dna-strand-2"></div>
+      <div class="dna-pairs">
+        <span></span><span></span><span></span><span></span><span></span>
+      </div>
+    </div>
+    <h3 class="loading-title">Analyzing Sample...</h3>
+    <div class="loading-steps">
+      <div class="loading-step active" id="step-signal">
+        <div class="step-dot"></div>
+        <span>Applying signal processing</span>
+      </div>
+      <div class="loading-step" id="step-dual">
+        <div class="step-dot"></div>
+        <span>Running dual-branch network</span>
+      </div>
+      <div class="loading-step" id="step-attention">
+        <div class="step-dot"></div>
+        <span>Computing attention fusion</span>
+      </div>
+      <div class="loading-step" id="step-gradcam">
+        <div class="step-dot"></div>
+        <span>Generating Grad-CAM</span>
+      </div>
+    </div>
+    <div class="loading-bar-wrap"><div class="loading-bar" id="loading-bar"></div></div>
+  </div>
+</div>
+
+<!-- ═══════════════════ RESULTS SECTION ═══════════════════ -->
+<section class="results-section" id="results-section" style="display:none">
+
+  <!-- Prediction Banner -->
+  <div class="prediction-banner glass-card" id="prediction-banner">
+    <div class="prediction-left">
+      <div class="prediction-label">Blood Group Detected</div>
+      <div class="prediction-group" id="result-group">--</div>
+      <div class="prediction-sublabel" id="result-confidence-label">Confidence: --</div>
+    </div>
+    <div class="prediction-right">
+      <div class="confidence-ring-wrap">
+        <svg class="confidence-ring" viewBox="0 0 120 120">
+          <circle cx="60" cy="60" r="52" class="ring-bg"/>
+          <circle cx="60" cy="60" r="52" class="ring-fg" id="ring-fg"
+                  stroke-dasharray="326.7" stroke-dashoffset="326.7"/>
+        </svg>
+        <div class="ring-text">
+          <span class="ring-pct" id="ring-pct">0%</span>
+          <span class="ring-sub">confidence</span>
+        </div>
+      </div>
+      <div class="inference-time" id="inference-time"></div>
+    </div>
+  </div>
+
+  <!-- Image Trio -->
+  <div class="image-grid">
+    <div class="image-panel glass-card">
+      <div class="panel-header">
+        <div class="panel-icon panel-icon-original">📷</div>
+        <div>
+          <div class="panel-title">Original Image</div>
+          <div class="panel-subtitle">Input blood sample</div>
+        </div>
+      </div>
+      <img id="img-original" class="result-img" alt="Original" />
+    </div>
+
+    <div class="image-panel glass-card">
+      <div class="panel-header">
+        <div class="panel-icon panel-icon-signal">⚡</div>
+        <div>
+          <div class="panel-title">Signal Processed</div>
+          <div class="panel-subtitle">CLAHE → Sobel Edge Detection</div>
+        </div>
+      </div>
+      <img id="img-signal" class="result-img" alt="Signal Processed" />
+    </div>
+
+    <div class="image-panel glass-card">
+      <div class="panel-header">
+        <div class="panel-icon panel-icon-gradcam">🔍</div>
+        <div>
+          <div class="panel-title">Grad-CAM</div>
+          <div class="panel-subtitle">Explainability heatmap</div>
+        </div>
+      </div>
+      <img id="img-gradcam" class="result-img" alt="Grad-CAM" />
+    </div>
+  </div>
+
+  <!-- Probability Bars -->
+  <div class="proba-section glass-card">
+    <h3 class="section-title">
+      <span class="section-icon">📊</span>
+      Class Probabilities
+    </h3>
+    <div class="proba-grid" id="proba-grid"></div>
+  </div>
+
+  <!-- Detail Cards Row -->
+  <div class="detail-row">
+    <div class="detail-card glass-card">
+      <div class="detail-icon">🧪</div>
+      <div class="detail-label">Signal Processing Pipeline</div>
+      <div class="pipeline-steps">
+        <div class="pipe-step">CLAHE</div>
+        <div class="pipe-arrow">→</div>
+        <div class="pipe-step">Gaussian Blur</div>
+        <div class="pipe-arrow">→</div>
+        <div class="pipe-step">Sobel</div>
+        <div class="pipe-arrow">→</div>
+        <div class="pipe-step">Normalize</div>
+      </div>
+    </div>
+    <div class="detail-card glass-card">
+      <div class="detail-icon">🧠</div>
+      <div class="detail-label">Model Architecture</div>
+      <div class="arch-info">
+        <span class="arch-chip">EfficientNetV2-S ×2</span>
+        <span class="arch-chip">Attention Fusion</span>
+        <span class="arch-chip">512D Head</span>
+      </div>
+    </div>
+    <div class="detail-card glass-card">
+      <div class="detail-icon">📡</div>
+      <div class="detail-label">Inference Details</div>
+      <div class="infer-info" id="infer-info"></div>
+    </div>
+  </div>
+
+  <!-- Try Again Button -->
+  <div class="try-again-wrap">
+    <button class="btn-try-again" id="try-again-btn">
+      ↺ Analyze Another Sample
+    </button>
+  </div>
+</section>
+
+<!-- ═══════════════════ FOOTER ═══════════════════ -->
+<footer class="footer">
+  <p>Blood Group AI • Dual-Branch EfficientNetV2-S with Attention Fusion &amp; Signal Processing</p>
+  <p class="footer-sub">For research and educational purposes.</p>
+</footer>
+
+<script src="/static/app.js"></script>
+</body>
+</html>
